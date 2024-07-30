@@ -1,0 +1,35 @@
+name: Build and publish
+
+on:
+  push:
+    branches: [ master ]
+  workflow_dispatch:
+env:
+  GETTEXT_VERSION: 0.22
+
+jobs:
+  login:
+    name: Build
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive
+      - name: Build gettext
+        run: |
+          sudo apt-get install -y make mingw-w64
+          mkdir .build && cd .build
+          wget https://ftp.mirrorservice.org/pub/gnu/gettext/gettext-${{env.GETTEXT_VERSION}}.tar.xz
+          tar xf gettext-${{env.GETTEXT_VERSION}}.tar.xz
+          cd gettext-${{env.GETTEXT_VERSION}}/gettext-runtime
+          ./configure --prefix=/usr --host=x86_64-w64-mingw32 --disable-java
+          make -j $(nproc)
+          make DESTDIR=${GITHUB_WORKSPACE}/x86_64 install
+      - name: Commit new gettext
+        run: |
+          git config --local user.email "invalid@aardsoft.fi"
+          git config --local user.name "Github Action"
+          git add --all
+          git commit -m "Update binaries" -a
+          git push "https://${GITHUB_ACTOR}:${INPUT_GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" --force
